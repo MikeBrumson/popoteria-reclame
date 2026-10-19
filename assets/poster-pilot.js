@@ -48,14 +48,31 @@
   const A = el("div", "act");
   A.innerHTML = `<div class="a-text"><div class="sprinceana">${P.categorie}</div><h1 class="nume">${leagaCuvinte(P.nume)}</h1><div class="linie"></div>${pretHtml.replace('class="pret"', 'class="pret pret-a"')}</div>`;
   const farf = el("div", "farfurie");
-  const fimg = el("img"); fimg.src = P.poza; fimg.alt = "";
+  const fimg = el("img"); fimg.src = P.pozaSus || P.poza; fimg.alt = ""; // sus: poza „AI top” din platformă
   farf.appendChild(fimg); A.appendChild(farf);
   scena.appendChild(A);
   // farfuria „privită de sus”: întindem pe verticală ca elipsa din poză să devină cerc
-  const D = 860, fc = P.farfurie, k = (D / 2) / fc.rx, sy = fc.rx / fc.ry;
-  Object.assign(farf.style, { width: D + "px", height: D + "px", left: (1330 - D / 2) + "px", top: (540 - D / 2) + "px" });
-  if (P.faraUmbra) farf.style.boxShadow = "none"; // Mihai, 19.10: umbra dubla la chiftele
-  Object.assign(fimg.style, { width: IMG_W * k + "px", height: IMG_H * k * sy + "px", left: (D / 2 - fc.cx * k) + "px", top: (D / 2 - fc.cy * k * sy) + "px" });
+  const D = 860;
+  if (P.pozaSus) {
+    // Mihai, 19.10: „nu mai pune masca” · „e deja taiat corespunzator pe platforma” — poza AI top întreagă, fără cerc, fără întindere
+    // cutia = toată elipsa de stingere (×1,25), pe fundal hârtie: multiply se aplică peste tot, deci cutia nu se vede (Lia v13: muchia cutiei se vedea)
+    const fc = P.farfurieSus, k = Math.min(820 / (2 * fc.rx), 760 / (2 * fc.ry)), w = 2.5 * fc.rx * k, h = 2.5 * fc.ry * k;
+    farf.classList.add("intreg");
+    Object.assign(farf.style, { width: w + "px", height: h + "px", left: (1330 - w / 2) + "px", top: (540 - h / 2) + "px" });
+    // Lia, 19.10: dreptunghiul pozei se vedea pe hârtie și acoperea titlul → fundalul pozei se stinge lin DINCOLO de farfurie (farfuria rămâne întreagă)
+    // Lia v14: stingerea trebuie să ajungă la zero ÎNAINTE de marginea pozei (altfel marginea pozei rotite apare ca linie dreaptă)
+    const RX = Math.min(1.25 * fc.rx, fc.cx - 2, IMG_W - fc.cx - 2), RY = Math.min(1.25 * fc.ry, fc.cy - 2, IMG_H - fc.cy - 2);
+    const pl = Math.min(97, 100 * Math.max(0.86 * 1.25 * fc.rx / RX, 0.86 * 1.25 * fc.ry / RY, 1.03 * fc.rx / RX, 1.03 * fc.ry / RY));
+    const fade = `radial-gradient(ellipse ${RX * k}px ${RY * k}px at ${fc.cx * k}px ${fc.cy * k}px, #000 ${pl}%, transparent 100%)`;
+    Object.assign(fimg.style, { width: IMG_W * k + "px", height: IMG_H * k + "px", left: (w / 2 - fc.cx * k) + "px", top: (h / 2 - fc.cy * k) + "px",
+      maskImage: fade, webkitMaskImage: fade });
+  } else {
+    const fc = P.farfurie, k = (D / 2) / fc.rx, sy = fc.rx / fc.ry;
+    Object.assign(farf.style, { width: D + "px", height: D + "px", left: (1330 - D / 2) + "px", top: (540 - D / 2) + "px" });
+    // farfuria poate fi ușor înclinată în poză (fc.unghi, grade): o îndreptăm, apoi o întindem în cerc
+    Object.assign(fimg.style, { width: IMG_W + "px", height: IMG_H + "px", left: (D / 2 - fc.cx) + "px", top: (D / 2 - fc.cy) + "px",
+      transformOrigin: `${fc.cx}px ${fc.cy}px`, transform: `scale(${k}, ${k * sy}) rotate(${-(fc.unghi || 0)}deg)` });
+  }
 
   // Actul B — lateral, aproape, lista ingredientelor (doar text)
   const B = el("div", "act");
