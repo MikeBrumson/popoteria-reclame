@@ -125,7 +125,8 @@
     }
     B.style.opacity = trec;
     if (B.style.opacity > 0) {
-      const lb = s - 10, z = (P.zoomB || 1.62) * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
+      // Mihai, 19.10: „sa faci farfuriile putin mai mic la side view” → ×0,88
+      const lb = s - 10, z = (P.zoomB || 1.62) * 0.88 * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
       bimg.style.width = IMG_W + "px";
       bimg.style.transform = `translate(${fx - P.focus.x * z}px, ${fy - P.focus.y * z}px) scale(${z})`;
       bt.firstChild.style.opacity = eOut(lin(lb, 0, 0.6));
