@@ -10,6 +10,11 @@
   const DOUA_PARTI = true; // Mihai, 19.10: 10 s de sus (prezentarea) + 10 s lateral (ingredientele)
   const W = 1920, H = 1080;
   const IMG_W = 1920, IMG_H = 1080;
+  const Q = new URLSearchParams(location.search);
+  // Mihai, 19.10: „sa nu fie sacadat” — pozele vin coapte (hârtia și stingerea sunt deja în fișier, coace.py),
+  // deci pe imaginile care se rotesc/scalează nu mai rulează mask și mix-blend în fiecare cadru. ?necopt = vechiul drum, pentru comparații.
+  const COPT = !Q.has("necopt");
+  const copt = (p) => p.replace(/\.\w+$/, "-c.webp");
 
   // ——— utilitare ———
   const cl = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -48,7 +53,7 @@
   const A = el("div", "act");
   A.innerHTML = `<div class="a-text"><div class="sprinceana">${P.categorie}</div><h1 class="nume">${leagaCuvinte(P.nume)}</h1><div class="linie"></div>${pretHtml.replace('class="pret"', 'class="pret pret-a"')}</div>`;
   const farf = el("div", "farfurie");
-  const fimg = el("img"); fimg.src = P.pozaSus || P.poza; fimg.alt = ""; // sus: poza „AI top” din platformă
+  const fimg = el("img"); fimg.src = P.pozaSus ? (COPT ? copt(P.pozaSus) : P.pozaSus) : P.poza; fimg.alt = ""; // sus: poza „AI top” din platformă
   farf.appendChild(fimg); A.appendChild(farf);
   scena.appendChild(A);
   // farfuria „privită de sus”: întindem pe verticală ca elipsa din poză să devină cerc
@@ -64,8 +69,9 @@
     const RX = Math.min(1.25 * fc.rx, fc.cx - 2, IMG_W - fc.cx - 2), RY = Math.min(1.25 * fc.ry, fc.cy - 2, IMG_H - fc.cy - 2);
     const pl = Math.min(97, 100 * Math.max(0.86 * 1.25 * fc.rx / RX, 0.86 * 1.25 * fc.ry / RY, 1.03 * fc.rx / RX, 1.03 * fc.ry / RY));
     const fade = `radial-gradient(ellipse ${RX * k}px ${RY * k}px at ${fc.cx * k}px ${fc.cy * k}px, #000 ${pl}%, transparent 100%)`;
-    Object.assign(fimg.style, { width: IMG_W * k + "px", height: IMG_H * k + "px", left: (w / 2 - fc.cx * k) + "px", top: (h / 2 - fc.cy * k) + "px",
-      maskImage: fade, webkitMaskImage: fade });
+    Object.assign(fimg.style, { width: IMG_W * k + "px", height: IMG_H * k + "px", left: (w / 2 - fc.cx * k) + "px", top: (h / 2 - fc.cy * k) + "px" });
+    if (COPT) { farf.style.mixBlendMode = "normal"; fimg.style.mixBlendMode = "normal"; farf.style.willChange = "transform"; }
+    else Object.assign(fimg.style, { maskImage: fade, webkitMaskImage: fade });
   } else {
     const fc = P.farfurie, k = (D / 2) / fc.rx, sy = fc.rx / fc.ry;
     Object.assign(farf.style, { width: D + "px", height: D + "px", left: (1330 - D / 2) + "px", top: (540 - D / 2) + "px" });
@@ -77,7 +83,7 @@
   // Actul B — lateral, aproape, lista ingredientelor (doar text)
   const B = el("div", "act");
   const bc = el("div", "b-cadru");
-  const bimg = el("img", "poza"); bimg.src = P.poza; bimg.alt = "";
+  const bimg = el("img", "poza"); bimg.src = COPT ? copt(P.poza) : P.poza; bimg.alt = "";
   bc.appendChild(bimg); B.appendChild(bc);
   B.appendChild(el("div", "voal-b"));
   const bt = el("div", "b-text", `<div class="sprinceana">Ingrediente</div><ul class="ingr">${P.ingrediente.map((x, i) => `<li><span>0${i + 1}</span>${x}</li>`).join("")}</ul>`);
@@ -90,8 +96,15 @@
   // Actul C — poza aproape + prețul
   const C = el("div", "act");
   const cc = el("div", "c-cadru");
-  const cimg = el("img", "poza"); cimg.src = P.poza; cimg.alt = "";
+  const cimg = el("img", "poza"); cimg.src = COPT ? copt(P.poza) : P.poza; cimg.alt = "";
   cc.appendChild(cimg); C.appendChild(cc);
+  if (COPT) for (const im of [bimg, cimg]) Object.assign(im.style, { mixBlendMode: "normal", willChange: "transform" });
+  // Lia v16: umbra de sub farfurie se termina drept la marginea de jos a pozei → o stingem lin între buza farfuriei și P.jos
+  if (P.jos && !COPT) {
+    const fj = P.farfurie, st = Math.min(P.jos - 8, Math.max(fj.cy + fj.ry * 1.02, P.jos - 60));
+    const jm = `linear-gradient(to bottom, #000 ${st}px, transparent ${P.jos}px)`;
+    for (const im of [bimg, cimg]) Object.assign(im.style, { maskImage: jm, webkitMaskImage: jm, maskSize: "100% 100%", webkitMaskSize: "100% 100%" });
+  }
   C.appendChild(el("div", "voal-c"));
   C.appendChild(el("div", "c-text", `<div class="sprinceana">${P.categorie}</div><div class="numemic">${leagaCuvinte(P.numeScurt)}</div>${pretHtml}`));
   const aburC = el("div", "abur", P.abur ? aburSvg(220, 300) : "");
@@ -119,7 +132,8 @@
     }
     B.style.opacity = trec;
     if (B.style.opacity > 0) {
-      const lb = s - 10, z = (P.zoomB || 1.62) * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
+      // Mihai, 19.10: „sa faci farfuriile putin mai mic la side view” → ×0,88
+      const lb = s - 10, z = (P.zoomB || 1.62) * 0.88 * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
       bimg.style.width = IMG_W + "px";
       bimg.style.transform = `translate(${fx - P.focus.x * z}px, ${fy - P.focus.y * z}px) scale(${z})`;
       bt.firstChild.style.opacity = eOut(lin(lb, 0, 0.6));
@@ -217,6 +231,9 @@
   const tq = new URLSearchParams(location.search).get("t"); const fix = tq != null && +tq < 100000 ? tq : null;
   const pornire = () => {
     if (fix != null) { randeaza(+fix); document.body.dataset.gata = "1"; return; }
+    // ?extern: pagina de ecran (ecran.html) ține ceasul serverului și cere cadrul exact; posterul nu mai are buclă proprie
+    // (Mihai, 19.10: „100% toate tv-urile in sincron … tvul doar sa oglindeasca ce e pe pagina”)
+    if (Q.has("extern")) { randeaza(0); window.__reda = (ms) => randeaza(Math.max(0, Math.min(20000, ms))); window.__gata = true; return; }
     let t0 = performance.now();
     const bucla = (now) => { randeaza(now - t0); requestAnimationFrame(bucla); };
     // în rotație (index.html) posterul stă pe 0 până primește „porneste”, ca să înceapă cu actul A
@@ -227,8 +244,11 @@
     }
     requestAnimationFrame(bucla);
   };
-  // pornim după ce poza e decodată, ca să nu apară nimic pe jumătate
-  const img = new Image(); img.src = P.poza;
+  // pornim după ce AMBELE poze (sus + lateral) sunt decodate în elementele afișate, ca să nu apară nimic pe jumătate
+  // Mihai, 19.10: „apare animatyia si apoi apare si farfuria” — se aștepta doar poza laterală; scena stă ascunsă până e totul gata
+  scena.style.visibility = "hidden";
+  const dec = (im) => (im.decode ? im.decode().catch(() => {}) : 0);
   const fonturi = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-  Promise.all([img.decode ? img.decode().catch(() => {}) : 0, fonturi]).then(() => { incadreazaTot(); pornire(); }, pornire);
+  const gata = () => { scena.style.visibility = ""; pornire(); };
+  Promise.all([dec(fimg), dec(bimg), dec(cimg), fonturi]).then(() => { incadreazaTot(); gata(); }, gata);
 })();

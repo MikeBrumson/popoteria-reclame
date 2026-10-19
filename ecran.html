@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>La Popoteria — ecran reclame</title>
+<style>
+  /* transparent: între reclame se vede meniul din Framer de sub această pagină */
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; cursor: none; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; visibility: hidden; pointer-events: none; }
+</style>
+</head><body>
+<script>
+/* Mihai, 19.10: „sa nu fie sacadat si … 100% toate tv-urile in sincron … tvul doar sa oglindeasca ce e pe pagina”.
+   O singură pagină per TV, încărcată o dată: posterele stau gata în iframe-uri (decodate), iar cadrul desenat
+   e calculat din ora SERVERULUI — toate TV-urile arată același cadru în același moment. Nimic nu se reîncarcă la reclamă.
+   Reclama: la fiecare minut fix, 20 s; reclama k = minutul % numărul de produse al TV-ului. */
+(function () {
+  "use strict";
+  const Q = new URLSearchParams(location.search);
+  const TV = Q.get("tv") || "1";
+  const LUNG = 20000, FADE_IN = 700, FADE_OUT = 1000;
+  const lin = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+
+  // ——— ceasul serverului: antetul Date are rezoluție de 1 s; din mai multe cereri intersectăm intervalele → ~0,1 s ———
+  let dif = 0, difNou = null;
+  async function ceas() {
+    let lo = -Infinity, hi = Infinity;
+    for (let i = 0; i < 14; i++) {
+      try {
+        const t1 = Date.now();
+        const r = await fetch("liste.json?c=" + t1 + i, { method: "HEAD", cache: "no-store" });
+        const t2 = Date.now(), D = Date.parse(r.headers.get("date"));
+        if (!isNaN(D)) {
+          // serverul era în [D, D+1000) undeva între t1 și t2
+          const a = D - t2, b = D + 1000 - t1;
+          if (a > hi || b < lo) { lo = a; hi = b; } else { lo = Math.max(lo, a); hi = Math.min(hi, b); }
+        }
+      } catch (e) {}
+      await new Promise((ok) => setTimeout(ok, 83 + i * 7));
+    }
+    if (isFinite(lo) && isFinite(hi)) difNou = (lo + hi) / 2;
+  }
+
+  // ——— lista și versiunea (liste.json): o schimbare de "v" reîncarcă pagina între reclame ———
+  let v = null, deReincarcat = false, cadre = [];
+  async function lista() {
+    try {
+      const j = await (await fetch("liste.json?c=" + Date.now(), { cache: "no-store" })).json();
+      if (v == null) { v = j.v; return j[TV] || []; }
+      if (j.v !== v) deReincarcat = j.v;
+    } catch (e) {}
+    return null;
+  }
+
+  function construieste(fis) {
+    cadre = fis.map((f) => {
+      const fr = document.createElement("iframe");
+      fr.title = ""; fr.setAttribute("aria-hidden", "true");
+      fr.src = f + "?extern=1&v=" + encodeURIComponent(v || "");
+      document.body.appendChild(fr);
+      return fr;
+    });
+  }
+  const gata = (fr) => { try { return !!(fr.contentWindow && fr.contentWindow.__gata); } catch (e) { return false; } };
+
+  let afisat = null;
+  function arata(fr, op, ms) {
+    if (afisat && afisat !== fr) { afisat.style.opacity = 0; afisat.style.visibility = "hidden"; afisat = null; }
+    if (!fr) return;
+    fr.style.visibility = "visible"; fr.style.opacity = op; afisat = fr;
+    try { fr.contentWindow.__reda(ms); } catch (e) {}
+  }
+
+  function bucla() {
+    const s = Date.now() + dif, p = ((s % 60000) + 60000) % 60000;
+    // ceasul nou și reîncărcarea se aplică doar între reclame, ca nimic să nu sară în timpul unei reclame
+    if (p > 30000 && p < 50000) {
+      if (difNou != null) { dif = difNou; difNou = null; }
+      if (deReincarcat) { const u = new URL(location.href); u.searchParams.set("v", deReincarcat); location.replace(u.href); deReincarcat = false; }
+    }
+    const n = cadre.length;
+    if (n) {
+      const k = Math.floor(s / 60000) % n;
+      if (p < LUNG + FADE_OUT) {
+        const fr = cadre[k];
+        // dacă posterul acestui minut nu e gata (poze încă nedecodate), nu arătăm nimic pe jumătate
+        if (gata(fr)) arata(fr, Math.min(lin(p, 0, FADE_IN), 1 - lin(p, LUNG, LUNG + FADE_OUT)), p);
+        else arata(null);
+      } else if (p > 58000) {
+        // încălzire: posterul următor e deja pe placa video (cadrul 0, aproape invizibil) cu 2 s înainte de minut
+        const fr = cadre[Math.floor((s + 60000) / 60000) % n];
+        if (gata(fr)) arata(fr, 0.01, 0); else arata(null);
+      } else arata(null);
+    }
+    requestAnimationFrame(bucla);
+  }
+
+  (async () => {
+    const [fis] = await Promise.all([lista(), ceas()]);
+    if (difNou != null) { dif = difNou; difNou = null; }
+    construieste(fis || []);
+    document.body.dataset.dif = Math.round(dif);
+    requestAnimationFrame(bucla);
+    setInterval(() => { lista(); }, 120000);
+    setInterval(() => { ceas(); }, 600000);
+  })();
+})();
+</script>
+</body></html>
