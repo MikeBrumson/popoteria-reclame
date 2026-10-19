@@ -12,12 +12,13 @@
 /* Mihai, 19.10: „sa nu fie sacadat si … 100% toate tv-urile in sincron … tvul doar sa oglindeasca ce e pe pagina”.
    O singură pagină per TV, încărcată o dată: posterele stau gata în iframe-uri (decodate), iar cadrul desenat
    e calculat din ora SERVERULUI — toate TV-urile arată același cadru în același moment. Nimic nu se reîncarcă la reclamă.
-   Reclama: la fiecare minut fix, 20 s; reclama k = minutul % numărul de produse al TV-ului. */
+   Reclama: ciclu de 80 s = 20 s reclamă + 60 s reducerea de 30% (Mihai, 19.10: „sa o lasi sa ramana si aia 1 minut”);
+   reclama k = numărul ciclului % numărul de produse al TV-ului. */
 (function () {
   "use strict";
   const Q = new URLSearchParams(location.search);
   const TV = Q.get("tv") || "1";
-  const LUNG = 20000, FADE_IN = 700, FADE_OUT = 1000;
+  const LUNG = 20000, CICLU = 80000, FADE_IN = 700, FADE_OUT = 1000;
   const lin = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
 
   // ——— ceasul serverului: antetul Date are rezoluție de 1 s; din mai multe cereri intersectăm intervalele → ~0,1 s ———
@@ -71,23 +72,23 @@
   }
 
   function bucla() {
-    const s = Date.now() + dif, p = ((s % 60000) + 60000) % 60000;
+    const s = Date.now() + dif, p = ((s % CICLU) + CICLU) % CICLU;
     // ceasul nou și reîncărcarea se aplică doar între reclame, ca nimic să nu sară în timpul unei reclame
-    if (p > 30000 && p < 50000) {
+    if (p > 30000 && p < 70000) {
       if (difNou != null) { dif = difNou; difNou = null; }
       if (deReincarcat) { const u = new URL(location.href); u.searchParams.set("v", deReincarcat); location.replace(u.href); deReincarcat = false; }
     }
     const n = cadre.length;
     if (n) {
-      const k = Math.floor(s / 60000) % n;
+      const k = Math.floor(s / CICLU) % n;
       if (p < LUNG + FADE_OUT) {
         const fr = cadre[k];
         // dacă posterul acestui minut nu e gata (poze încă nedecodate), nu arătăm nimic pe jumătate
         if (gata(fr)) arata(fr, Math.min(lin(p, 0, FADE_IN), 1 - lin(p, LUNG, LUNG + FADE_OUT)), p);
         else arata(null);
-      } else if (p > 58000) {
-        // încălzire: posterul următor e deja pe placa video (cadrul 0, aproape invizibil) cu 2 s înainte de minut
-        const fr = cadre[Math.floor((s + 60000) / 60000) % n];
+      } else if (p > CICLU - 2000) {
+        // încălzire: posterul următor e deja pe placa video (cadrul 0, aproape invizibil) cu 2 s înainte de ciclu
+        const fr = cadre[Math.floor((s + CICLU) / CICLU) % n];
         if (gata(fr)) arata(fr, 0.01, 0); else arata(null);
       } else arata(null);
     }
