@@ -54,6 +54,7 @@
   // farfuria „privită de sus”: întindem pe verticală ca elipsa din poză să devină cerc
   const D = 860, fc = P.farfurie, k = (D / 2) / fc.rx, sy = fc.rx / fc.ry;
   Object.assign(farf.style, { width: D + "px", height: D + "px", left: (1330 - D / 2) + "px", top: (540 - D / 2) + "px" });
+  if (P.faraUmbra) farf.style.boxShadow = "none"; // Mihai, 19.10: umbra dubla la chiftele
   Object.assign(fimg.style, { width: IMG_W * k + "px", height: IMG_H * k * sy + "px", left: (D / 2 - fc.cx * k) + "px", top: (D / 2 - fc.cy * k * sy) + "px" });
 
   // Actul B — lateral, aproape, lista ingredientelor (doar text)
