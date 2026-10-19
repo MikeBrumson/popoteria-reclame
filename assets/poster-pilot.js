@@ -93,10 +93,43 @@
   const bimg = el("img", "poza"); bimg.src = COPT ? copt(P.poza) : P.poza; bimg.alt = "";
   bc.appendChild(bimg); B.appendChild(bc);
   B.appendChild(el("div", "voal-b"));
-  const bt = el("div", "b-text", `<div class="sprinceana">Ingrediente</div><ul class="ingr">${P.ingrediente.map((x, i) => `<li><span>0${i + 1}</span>${x}</li>`).join("")}</ul>`);
+  // Mihai, 19.10: „Ingrediente dedesubt cum se numeste produsul … cu capslook dar bold” · „jos dedesubt la ingrediente scrii iar pretul” · „sa nu se taie niciodata”
+  const bt = el("div", "b-text", `<div class="numeb">${leagaCuvinte(P.numeScurt || P.nume)}</div><div class="sprinceana ingr-titlu">Ingrediente</div><ul class="ingr">${P.ingrediente.map((x, i) => `<li><span>0${i + 1}</span>${x}</li>`).join("")}</ul>${pretHtml.replace('class="pret"', 'class="pret pret-b"')}`);
   B.appendChild(bt);
   const aburSvg = (w, h) => `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${[0, 1, 2].map((i) => `<path d="M${w * (0.3 + i * 0.2)} ${h} C${w * (0.3 + i * 0.2) - 40} ${h * 0.7} ${w * (0.3 + i * 0.2) + 40} ${h * 0.45} ${w * (0.3 + i * 0.2)} ${h * 0.2}"/>`).join("")}</svg>`;
-  const aburB = el("div", "abur", P.abur ? aburSvg(360, 420) : "");
+  // Mihai, 19.10: „pune acel abur sa fie mai natural, acum este prea simplificat” → fire de puf moale pe canvas, care urcă,
+  // se unduiesc, se lărgesc și se rup în fâșii; desenul e funcție pură de timp (ecranul sincron cere orice cadru, oricând)
+  const facAbur = (w, h, nFire) => {
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d"), sp = document.createElement("canvas"); sp.width = sp.height = 64;
+    const sg = sp.getContext("2d"), rg = sg.createRadialGradient(32, 32, 0, 32, 32, 32);
+    rg.addColorStop(0, "rgba(255,255,255,1)"); rg.addColorStop(0.25, "rgba(255,255,255,.55)"); rg.addColorStop(0.7, "rgba(255,255,255,.12)"); rg.addColorStop(1, "rgba(255,255,255,0)");
+    sg.fillStyle = rg; sg.fillRect(0, 0, 64, 64);
+    // Lia v21–v22: pe hârtia crem albul câștigă ≤1–19 niveluri, iar un corp mai închis arată a fum → fuioarele se văd peste mâncare și marginea farfuriei și se destramă în crem, ca în fotografie
+    const rnd = (i, n) => { const x = Math.sin((i + 1) * 12.9898 + (n + 1) * 78.233) * 43758.5453; return x - Math.floor(x); };
+    const F = Array.from({ length: nFire }, (_, i) => ({ x0: w * (0.2 + 0.6 * (i + rnd(i, 1) * 0.8) / nFire), f1: 0.011 + 0.008 * rnd(i, 2),
+      f2: 0.027 + 0.018 * rnd(i, 3), ph: 6.283 * rnd(i, 4), pul: 2.4 + 2.2 * rnd(i, 5), w0: 5 + 3 * rnd(i, 6), v: 0.9 + 0.5 * rnd(i, 7) }));
+    const N = 210; // Lia r3: la 52 de puncte pe 540 px firul ieșea „pe mărgele” (pas 10 px > raza) → pas 2,6 px, fir continuu
+    const B = [];
+    return { cv, deseneaza(s) {
+      g.clearRect(0, 0, w, h); B.length = 0;
+      for (const f of F) {
+        const puls = 0.5 + 0.5 * Math.sin(s * 6.283 / f.pul + f.ph); // fiecare fir „respiră”
+        for (let j = 0; j < N; j++) {
+          const u = j / (N - 1), hh = h * u, amp = 10 + 30 * u * u;
+          const x = f.x0 + Math.sin(hh * f.f1 - s * f.v + f.ph) * amp + Math.sin(hh * f.f2 - s * 1.7 * f.v + 2 * f.ph) * amp * 0.45 + 16 * u * u * Math.sin(s * 0.37 + f.ph);
+          const rupt = 0.35 + 0.65 * Math.max(0, Math.sin(hh * 0.021 - s * 1.5 * f.v + f.ph)); // fâșii care se desprind și urcă
+          const a = Math.min(1, u / 0.15) * Math.pow(1 - u, 1.3) * (0.35 + 0.65 * puls) * rupt * 0.5;
+          if (a < 0.006) continue;
+          B.push(x, h - hh, f.w0 * (1 + 2.2 * u), a);
+        }
+      }
+      for (let i = 0; i < B.length; i += 4) { const r = B[i + 2] * 0.85; g.globalAlpha = Math.min(1, B[i + 3] * 0.75); g.drawImage(sp, B[i] - r, B[i + 1] - r, 2 * r, 2 * r); }
+    } };
+  };
+  const aburNat = P.abur ? facAbur(380, 540, 6) : null;
+  const aburB = el("div", "abur");
+  if (aburNat) aburB.appendChild(aburNat.cv); // fără filter: blur(2px) schimba ≤370 px (max 17 niveluri) dar dubla p95 al cadrelor pe 065
   B.appendChild(aburB);
   scena.appendChild(B);
 
@@ -141,20 +174,22 @@
     if (B.style.opacity > 0) {
       // Mihai, 19.10: „sa faci farfuriile putin mai mic la side view” → ×0,88
       const lb = s - 10, z = (P.zoomB || 1.62) * 0.88 * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
+      // Mihai, 19.10: „fa farfuria sa pluteasca putin cea side view” → urcă/coboară ±7 px (3,6 s) și se înclină ±0,3° (5,1 s), pornind lin
+      const pl = eInOut(lin(lb, -0.4, 1.2)), dy = -pl * 7 * Math.sin(lb * 6.283 / 3.6), rot = pl * 0.3 * Math.sin(lb * 6.283 / 5.1 + 0.8);
       bimg.style.width = IMG_W + "px";
-      bimg.style.transform = `translate(${fx - P.focus.x * z}px, ${fy - P.focus.y * z}px) scale(${z})`;
-      bt.firstChild.style.opacity = eOut(lin(lb, 0, 0.6));
-      bt.querySelectorAll("li").forEach((e, i) => {
-        const p = eOut(lin(lb, 0.3 + i * 0.5, 1.1 + i * 0.5));
+      bimg.style.transform = `translate(${fx}px, ${fy + dy}px) rotate(${rot}deg) translate(${-P.focus.x * z}px, ${-P.focus.y * z}px) scale(${z})`;
+      const [bn, bti] = bt.children, li = bt.querySelectorAll("li"), pb = bt.querySelector(".pret-b");
+      bn.style.opacity = eOut(lin(lb, 0, 0.6)); bn.style.transform = `translateY(${(1 - eOut(lin(lb, 0, 0.7))) * 24}px)`;
+      bti.style.opacity = eOut(lin(lb, 0.2, 0.8));
+      li.forEach((e, i) => {
+        const p = eOut(lin(lb, 0.45 + i * 0.4, 1.15 + i * 0.4));
         e.style.opacity = p; e.style.transform = `translateX(${(1 - p) * -36}px)`;
       });
-      if (P.abur) {
-        aburB.style.left = (fx - 180) + "px"; aburB.style.top = (fy - 560) + "px";
-        aburB.querySelectorAll("path").forEach((pa, i) => {
-          const c = ((lb + i * 0.55) % 1.9) / 1.9;
-          pa.style.transform = `translateY(${-c * 120}px) translateX(${Math.sin(c * 6 + i) * 14}px)`;
-          pa.style.opacity = Math.sin(c * Math.PI) * 0.9;
-        });
+      if (pb) { const p = eOut(lin(lb, 0.6 + li.length * 0.4, 1.4 + li.length * 0.4)); pb.style.opacity = p; pb.style.transform = `translateY(${(1 - p) * 26}px)`; }
+      if (aburNat) {
+        aburB.style.left = (fx - 190) + "px"; aburB.style.top = (fy - 600 + dy) + "px";
+        aburB.style.opacity = eOut(lin(lb, 0.2, 1.6));
+        aburNat.deseneaza(lb + 30); // +30 s: aburul e deja „pornit”, nu crește din nimic la începutul părții
       }
     }
   }
@@ -232,6 +267,14 @@
     let f = parseFloat(nm.style.fontSize);
     while (f > 72 && at.offsetTop + at.offsetHeight > H - 60) { f -= 4; nm.style.fontSize = f + "px"; }
     incadreaza(C.querySelector(".numemic"), 84, 44, 3);
+    // partea laterală: nume + INGREDIENTE + listă + preț; micșorăm totul proporțional până nimic nu iese din coloană și blocul se termină deasupra marginii de jos
+    const bn = bt.querySelector(".numeb"), lis = bt.querySelectorAll(".ingr li"), pb = bt.querySelector(".pret-b");
+    const iese = () => bt.offsetTop + bt.offsetHeight > H - 50 || [bn, ...lis].some((e) => e.scrollWidth > e.clientWidth + 1);
+    for (let k = 1; k >= 0.5; k -= 0.03) {
+      bn.style.fontSize = 100 * k + "px"; lis.forEach((e) => (e.style.fontSize = 60 * k + "px"));
+      if (pb) { pb.querySelector(".suma").style.fontSize = 140 * k + "px"; pb.querySelector(".lei").style.fontSize = 46 * k + "px"; }
+      if (!iese()) break;
+    }
   };
 
   // t mic (sub 100 s) = cadru înghețat pentru capturi; t mare (Date.now() pus de TV 1 ca să ocolească cache-ul) = animație normală

@@ -61,8 +61,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--hart
 /* ——— actul B: lateral ——— */
 .b-cadru { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
 .b-cadru img.poza { position: absolute; mix-blend-mode: multiply; transform-origin: 0 0; }
-.b-text { position: absolute; left: 80px; top: 250px; width: 600px; z-index: 5; }
+.b-text { position: absolute; left: 80px; top: 236px; width: 620px; z-index: 5; }
 .b-text .sprinceana { margin-bottom: 40px; }
+/* Mihai, 19.10: numele produsului sus, sub el INGREDIENTE (majuscule, bold), lista, jos prețul; fontul îl coboară incadrezaTot (nu se taie) */
+.numeb { font-family: var(--serif); font-size: 100px; line-height: .98; letter-spacing: -.015em; color: var(--cerneala);
+  text-wrap: balance; overflow-wrap: normal; word-break: keep-all; hyphens: none; opacity: 0; }
+.b-text .ingr-titlu { font-weight: 800; margin: 30px 0 22px; opacity: 0; }
+.pret.pret-b { margin-top: 34px; opacity: 0; } .pret.pret-b .suma { font-size: 140px; } .pret.pret-b .lei { font-size: 46px; margin: 6px 0 0 14px; }
 .ingr { list-style: none; }
 .ingr li { display: flex; align-items: baseline;
   font-family: var(--serif); font-style: italic; font-size: 66px; line-height: 1.2; color: var(--cerneala);
