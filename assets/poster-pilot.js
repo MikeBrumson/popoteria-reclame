@@ -7,6 +7,7 @@
   const P = window.PREPARAT;
   const CICLU = 12; // secunde de cronologie internă
   const DURATA_REALA = 20; // secunde pe ecran: cronologia se întinde 12→20 s (momente și mișcări mai domoale)
+  const DOUA_PARTI = true; // Mihai, 19.10: 10 s de sus (prezentarea) + 10 s lateral (ingredientele)
   const W = 1920, H = 1080;
   const IMG_W = 1920, IMG_H = 1080;
 
@@ -84,7 +85,43 @@
   // ——— cronologia ———
   const vizibil = (t, s, e) => Math.min(lin(t, s - 0.25, s + 0.3), 1 - lin(t, e - 0.25, e + 0.3));
 
+  // Două părți de câte 10 s (Mihai, 19.10): 0–10 s farfuria de sus, rotindu-se, cu prezentarea produsului;
+  // 10–20 s vederea laterală, statică (crește foarte puțin), cu ingredientele. Actul C nu mai apare.
+  function douaParti(ms) {
+    const s = ms / 1000, la = s * CICLU / DURATA_REALA, trec = eInOut(lin(s, 9.6, 10.4));
+    C.style.opacity = 0;
+    A.style.opacity = 1 - trec;
+    if (A.style.opacity > 0) {
+      farf.style.transform = `scale(${mix(0.9, 1, eOut(lin(la, -0.3, 1.4)))}) rotate(${(la + 0.3) * 7}deg)`;
+      const at = A.querySelector(".a-text"), [spr, nume, linie] = at.children, pa = at.querySelector(".pret-a");
+      spr.style.opacity = eOut(lin(la, 0.05, 0.6)); spr.style.transform = `translateY(${(1 - eOut(lin(la, 0.05, 0.6))) * 20}px)`;
+      nume.style.opacity = eOut(lin(la, 0.2, 0.95)); nume.style.transform = `translateY(${(1 - eOut(lin(la, 0.2, 1.1))) * 46}px)`;
+      linie.style.transform = `scaleX(${eOut(lin(la, 0.6, 1.4))})`;
+      if (pa) { pa.style.opacity = eOut(lin(la, 0.9, 1.6)); pa.style.transform = `translateY(${(1 - eOut(lin(la, 0.9, 1.7))) * 30}px)`; }
+    }
+    B.style.opacity = trec;
+    if (B.style.opacity > 0) {
+      const lb = s - 10, z = (P.zoomB || 1.62) * mix(1, 1.035, lin(lb, -0.4, 10)), fx = 1290, fy = 600;
+      bimg.style.width = IMG_W + "px";
+      bimg.style.transform = `translate(${fx - P.focus.x * z}px, ${fy - P.focus.y * z}px) scale(${z})`;
+      bt.firstChild.style.opacity = eOut(lin(lb, 0, 0.6));
+      bt.querySelectorAll("li").forEach((e, i) => {
+        const p = eOut(lin(lb, 0.3 + i * 0.5, 1.1 + i * 0.5));
+        e.style.opacity = p; e.style.transform = `translateX(${(1 - p) * -36}px)`;
+      });
+      if (P.abur) {
+        aburB.style.left = (fx - 180) + "px"; aburB.style.top = (fy - 560) + "px";
+        aburB.querySelectorAll("path").forEach((pa, i) => {
+          const c = ((lb + i * 0.55) % 1.9) / 1.9;
+          pa.style.transform = `translateY(${-c * 120}px) translateX(${Math.sin(c * 6 + i) * 14}px)`;
+          pa.style.opacity = Math.sin(c * Math.PI) * 0.9;
+        });
+      }
+    }
+  }
+
   function randeaza(ms) {
+    if (DOUA_PARTI) return douaParti(ms);
     const t = ((ms / 1000) * CICLU / DURATA_REALA) % CICLU;
     const tA = t >= CICLU - 0.3 ? t - CICLU : t;
 
@@ -150,7 +187,11 @@
   }
 
   const incadreazaTot = () => {
-    incadreaza(A.querySelector(".nume"), 190, 72, 3);
+    // titlul puțin mai mic (Mihai, 19.10) și prețul mereu în cadru: coborâm fontul până când blocul se termină deasupra marginii de jos
+    const nm = A.querySelector(".nume"), at = A.querySelector(".a-text");
+    incadreaza(nm, 160, 72, 3);
+    let f = parseFloat(nm.style.fontSize);
+    while (f > 72 && at.offsetTop + at.offsetHeight > H - 60) { f -= 4; nm.style.fontSize = f + "px"; }
     incadreaza(C.querySelector(".numemic"), 84, 44, 3);
   };
 
