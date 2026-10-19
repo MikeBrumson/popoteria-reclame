@@ -92,6 +92,12 @@
   const cc = el("div", "c-cadru");
   const cimg = el("img", "poza"); cimg.src = P.poza; cimg.alt = "";
   cc.appendChild(cimg); C.appendChild(cc);
+  // Lia v16: umbra de sub farfurie se termina drept la marginea de jos a pozei → o stingem lin între buza farfuriei și P.jos
+  if (P.jos) {
+    const fj = P.farfurie, st = Math.min(P.jos - 8, Math.max(fj.cy + fj.ry * 1.02, P.jos - 60));
+    const jm = `linear-gradient(to bottom, #000 ${st}px, transparent ${P.jos}px)`;
+    for (const im of [bimg, cimg]) Object.assign(im.style, { maskImage: jm, webkitMaskImage: jm, maskSize: "100% 100%", webkitMaskSize: "100% 100%" });
+  }
   C.appendChild(el("div", "voal-c"));
   C.appendChild(el("div", "c-text", `<div class="sprinceana">${P.categorie}</div><div class="numemic">${leagaCuvinte(P.numeScurt)}</div>${pretHtml}`));
   const aburC = el("div", "abur", P.abur ? aburSvg(220, 300) : "");
