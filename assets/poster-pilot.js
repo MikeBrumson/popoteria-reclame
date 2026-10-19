@@ -154,7 +154,8 @@
     incadreaza(C.querySelector(".numemic"), 84, 44, 3);
   };
 
-  const fix = new URLSearchParams(location.search).get("t");
+  // t mic (sub 100 s) = cadru înghețat pentru capturi; t mare (Date.now() pus de TV 1 ca să ocolească cache-ul) = animație normală
+  const tq = new URLSearchParams(location.search).get("t"); const fix = tq != null && +tq < 100000 ? tq : null;
   const pornire = () => {
     if (fix != null) { randeaza(+fix); document.body.dataset.gata = "1"; return; }
     let t0 = performance.now();
