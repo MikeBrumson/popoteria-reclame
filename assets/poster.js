@@ -15,6 +15,13 @@
   // deci pe imaginile care se rotesc/scalează nu mai rulează mask și mix-blend în fiecare cadru. ?necopt = vechiul drum, pentru comparații.
   const COPT = !Q.has("necopt");
   const copt = (p) => p.replace(/\.\w+$/, "-c.webp");
+  // Mihai, 19.10: „tv 4 si 5 apare doar logo si farfuria fara text” — „porneste” sosea înainte ca pozele să fie decodate,
+  // iar ascultătorul se punea abia după → cadrul 0 rămânea înghețat. Ascultăm de la început.
+  let pornitLa = null, laPornire = null;
+  addEventListener("message", (e) => {
+    if (e.data !== "porneste" || pornitLa != null) return;
+    pornitLa = performance.now(); if (laPornire) laPornire();
+  });
 
   // ——— utilitare ———
   const cl = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -237,9 +244,11 @@
     let t0 = performance.now();
     const bucla = (now) => { randeaza(now - t0); requestAnimationFrame(bucla); };
     // în rotație (index.html) posterul stă pe 0 până primește „porneste”, ca să înceapă cu actul A
-    if (new URLSearchParams(location.search).has("asteapta")) {
+    if (Q.has("asteapta")) {
       randeaza(0);
-      addEventListener("message", (e) => { if (e.data === "porneste") { t0 = performance.now(); requestAnimationFrame(bucla); } }, { once: true });
+      // semnalul venit cât încă decodam pozele nu se mai pierde: pornim din momentul în care a sosit
+      if (pornitLa != null) { t0 = pornitLa; requestAnimationFrame(bucla); return; }
+      laPornire = () => { t0 = pornitLa; requestAnimationFrame(bucla); };
       return;
     }
     requestAnimationFrame(bucla);
